@@ -140,6 +140,33 @@ static MP_DEFINE_CONST_FUN_OBJ_1(machine_enable_irq_obj, machine_enable_irq);
 
 #endif
 
+// Add this code after the existing includes and definitions
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+STATIC mp_obj_t machine_base_mac_addr(size_t n_args, const mp_obj_t *args) {
+    if(n_args == 0) {
+        uint8_t mac[6];
+        esp_err_t ret = esp_base_mac_addr_get(mac);
+        if (ret != ESP_OK)
+            mp_raise_ValueError(MP_ERROR_TEXT("Getting base MAC addr failed"));
+        
+        return mp_obj_new_bytes(mac, 6);
+    }
+
+    mp_buffer_info_t bufinfo;
+    mp_get_buffer_raise(args[0], &bufinfo, MP_BUFFER_READ);
+    if(bufinfo.len != 6)
+        mp_raise_ValueError(MP_ERROR_TEXT("Not a valid MAC address"));
+    
+    esp_err_t ret = esp_base_mac_addr_set(bufinfo.buf);
+    if (ret != ESP_OK)
+        mp_raise_ValueError(MP_ERROR_TEXT("Changing base MAC addr failed"));
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(machine_base_mac_addr_obj, 0, 1, machine_base_mac_addr);
+#endif
+
+
 static const mp_rom_map_elem_t machine_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_machine) },
 
@@ -242,6 +269,13 @@ static const mp_rom_map_elem_t machine_module_globals_table[] = {
     #ifdef MICROPY_PY_MACHINE_EXTRA_GLOBALS
     MICROPY_PY_MACHINE_EXTRA_GLOBALS
     #endif
+   
+   // Set Mac Address from Micropython
+   #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+   // get/set base mac address
+   { MP_ROM_QSTR(MP_QSTR_base_mac_addr), MP_ROM_PTR(&machine_base_mac_addr_obj) },
+   #endif
+
 };
 static MP_DEFINE_CONST_DICT(machine_module_globals, machine_module_globals_table);
 
@@ -253,3 +287,4 @@ const mp_obj_module_t mp_module_machine = {
 MP_REGISTER_EXTENSIBLE_MODULE(MP_QSTR_machine, mp_module_machine);
 
 #endif // MICROPY_PY_MACHINE
+
